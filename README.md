@@ -27,7 +27,7 @@ All processing happens entirely in your browser. Your images and videos never le
 ## Usage
 
 ### Online
-Visit the hosted version (add your URL here)
+Visit the hosted version at **[nicershot.netlify.app](https://nicershot.netlify.app/)**
 
 ### Local
 Simply open `index.html` in any modern browser:
