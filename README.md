@@ -61,7 +61,3 @@ Works on all modern browsers (Chrome, Firefox, Safari, Edge) on Windows, Mac, an
 ## License
 
 MIT License - feel free to use, modify, and distribute.
-
-## Contributing
-
-Contributions are welcome! Feel free to submit issues and pull requests.
