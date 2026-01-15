@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Croppy - Perspective Correction Tool</title>
+    <meta name="description" content="Free online tool to fix perspective distortion in photos. Crop and straighten images of screens, documents, whiteboards, and more.">
+    <meta property="og:title" content="Croppy - Perspective Correction Tool">
+    <meta property="og:description" content="Free online tool to fix perspective distortion in photos.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='%23e94560' stroke-width='8' rx='8'/><circle cx='20' cy='20' r='8' fill='%23e94560'/><circle cx='80' cy='20' r='8' fill='%23e94560'/><circle cx='80' cy='80' r='8' fill='%23e94560'/><circle cx='20' cy='80' r='8' fill='%23e94560'/></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: rgba(22, 33, 62, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .toolbar-brand {
+            font-size: 20px;
+            font-weight: 600;
+            color: #e94560;
+            margin-right: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(255,255,255,0.15);
+            margin: 0 8px;
+        }
+
+        .toolbar button {
+            background: rgba(15, 52, 96, 0.8);
+            color: #eee;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar button:hover {
+            background: rgba(26, 74, 122, 0.9);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+        .toolbar button.primary {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .toolbar button.primary:hover {
+            background: linear-gradient(135deg, #ff5a75 0%, #e94560 100%);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+        }
+
+        .toolbar button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .mode-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            padding: 3px;
+            margin-right: 8px;
+        }
+
+        .mode-tab {
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .mode-tab:hover {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .mode-tab.active {
+            background: rgba(233, 69, 96, 0.3);
+            color: #e94560;
+        }
+
+        .instructions {
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            margin-left: auto;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 30px;
+        }
+
+        #imageCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: none;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+        }
+
+        .drop-zone {
+            position: absolute;
+            inset: 30px;
+            border: 2px dashed rgba(233, 69, 96, 0.3);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+            background: rgba(233, 69, 96, 0.02);
+        }
+
+        .drop-zone:hover {
+            border-color: rgba(233, 69, 96, 0.5);
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .drop-zone.drag-over {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.1);
+            transform: scale(1.01);
+        }
+
+        .drop-zone.hidden {
+            display: none;
+        }
+
+        .drop-zone-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(233, 69, 96, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drop-zone-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: #e94560;
+            opacity: 0.8;
+        }
+
+        .drop-zone-text {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            font-weight: 500;
+        }
+
+        .drop-zone-subtext {
+            font-size: 14px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .drop-zone-subtext kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+        }
+
+        .corner-point {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #e94560;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            z-index: 10;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 4px rgba(233, 69, 96, 0.2);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .corner-point::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .corner-point:hover {
+            transform: translate(-50%, -50%) scale(1.15);
+            box-shadow: 0 4px 16px rgba(233, 69, 96, 0.6), 0 0 0 6px rgba(233, 69, 96, 0.3);
+        }
+
+        .corner-point.dragging {
+            cursor: grabbing;
+            transform: translate(-50%, -50%) scale(1.25);
+            box-shadow: 0 6px 24px rgba(233, 69, 96, 0.7), 0 0 0 8px rgba(233, 69, 96, 0.4);
+        }
+
+        .selection-overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .selection-overlay svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Crosshair cursor */
+        .crosshair-container {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .crosshair-container.active {
+            display: block;
+        }
+
+        .crosshair-lines {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair-lines::before,
+        .crosshair-lines::after {
+            content: '';
+            position: absolute;
+            background: rgba(233, 69, 96, 0.8);
+        }
+
+        .crosshair-lines::before {
+            width: 1px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+        }
+
+        .crosshair-lines::after {
+            height: 1px;
+            width: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+        }
+
+        .crosshair-center {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #e94560;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background: transparent;
+        }
+
+        .zoom-lens {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            border: 3px solid rgba(233, 69, 96, 0.8);
+            border-radius: 50%;
+            overflow: hidden;
+            transform: translate(25px, -160px);
+            background: #000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .zoom-lens canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .zoom-lens::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .zoom-lens::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(233, 69, 96, 0.9);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            box-shadow: 0 0 10px rgba(233, 69, 96, 0.3);
+        }
+
+        .zoom-crosshair {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 1px;
+            height: 100%;
+            background: rgba(233, 69, 96, 0.4);
+            transform: translateX(-50%);
+            z-index: 2;
+        }
+
+        .zoom-crosshair-h {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: rgba(233, 69, 96, 0.4);
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        /* Result panel */
+        .result-panel {
+            position: fixed;
+            top: 0;
+            right: -50%;
+            bottom: 0;
+            width: 50%;
+            background: rgba(22, 33, 62, 0.98);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: right 0.3s ease;
+            box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+        }
+
+        .result-panel.visible {
+            right: 0;
+        }
+
+        .result-header {
+            padding: 16px 24px;
+            background: rgba(15, 52, 96, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .result-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .result-header button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #eee;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .result-header button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .result-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            overflow: auto;
+            background: rgba(0,0,0,0.2);
+        }
+
+        #resultCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            border-radius: 4px;
+        }
+
+        /* Hidden file input */
+        #fileInput {
+            display: none;
+        }
+
+        /* Keyboard shortcuts hint */
+        .shortcuts-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 33, 62, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            display: flex;
+            gap: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .shortcuts-hint kbd {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: inherit;
+        }
+
+        .shortcuts-hint.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <span class="toolbar-brand">Croppy</span>
+        <div class="mode-tabs">
+            <a href="index.html" class="mode-tab active">Image</a>
+            <a href="video.html" class="mode-tab">Video</a>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button onclick="document.getElementById('fileInput').click()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Open
+        </button>
+        <button id="cropBtn" class="primary" disabled onclick="performCrop()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M6 6H2m20-4-4 4"/></svg>
+            Crop & Correct
+        </button>
+        <button id="downloadBtn" disabled onclick="downloadResult()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download
+        </button>
+        <button id="resetBtn" disabled onclick="resetTool()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></svg>
+            Reset
+        </button>
+        <span class="instructions" id="instructions">Paste or drop an image to start</span>
+    </div>
+
+    <div class="main-container">
+        <div class="canvas-container" id="canvasContainer">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+                    </svg>
+                </div>
+                <div class="drop-zone-text">Drop an image here</div>
+                <div class="drop-zone-subtext">or paste from clipboard with <kbd id="pasteKey">Cmd+V</kbd></div>
+            </div>
+            <canvas id="imageCanvas"></canvas>
+            <div class="selection-overlay" id="selectionOverlay">
+                <svg>
+                    <defs>
+                        <pattern id="hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+                            <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(233, 69, 96, 0.25)" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <polygon id="selectionPolygon" fill="url(#hatch)" stroke="#e94560" stroke-width="2" stroke-dasharray="8 4"/>
+                </svg>
+            </div>
+            <div class="corner-point" id="corner0" data-index="0"></div>
+            <div class="corner-point" id="corner1" data-index="1"></div>
+            <div class="corner-point" id="corner2" data-index="2"></div>
+            <div class="corner-point" id="corner3" data-index="3"></div>
+        </div>
+
+        <div class="result-panel" id="resultPanel">
+            <div class="result-header">
+                <h3>Corrected Result</h3>
+                <button onclick="closeResult()">Close</button>
+            </div>
+            <div class="result-content">
+                <canvas id="resultCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="crosshair-container" id="crosshair">
+        <div class="crosshair-lines"></div>
+        <div class="crosshair-center"></div>
+        <div class="zoom-lens">
+            <canvas id="zoomCanvas" width="280" height="280"></canvas>
+            <div class="zoom-crosshair"></div>
+            <div class="zoom-crosshair-h"></div>
+        </div>
+    </div>
+
+    <div class="shortcuts-hint hidden" id="shortcutsHint">
+        <span><kbd>Click</kbd> Move nearest corner</span>
+        <span><kbd>Drag</kbd> Fine-tune corner</span>
+        <span><kbd>Enter</kbd> Crop & Correct</span>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+
+    <script>
+        // State
+        let originalImage = null;
+        let displayScale = 1;
+        let imageOffset = { x: 0, y: 0 };
+
+        // Corner positions in image coordinates (0-1 normalized)
+        let corners = [
+            { x: 0.1, y: 0.1 },   // Top-left
+            { x: 0.9, y: 0.1 },   // Top-right
+            { x: 0.9, y: 0.9 },   // Bottom-right
+            { x: 0.1, y: 0.9 }    // Bottom-left
+        ];
+
+        let isDragging = false;
+        let dragIndex = -1;
+
+        // DOM elements
+        const canvasContainer = document.getElementById('canvasContainer');
+        const imageCanvas = document.getElementById('imageCanvas');
+        const ctx = imageCanvas.getContext('2d');
+        const dropZone = document.getElementById('dropZone');
+        const selectionOverlay = document.getElementById('selectionOverlay');
+        const selectionPolygon = document.getElementById('selectionPolygon');
+        const crosshair = document.getElementById('crosshair');
+        const zoomCanvas = document.getElementById('zoomCanvas');
+        const zoomCtx = zoomCanvas.getContext('2d');
+        const resultPanel = document.getElementById('resultPanel');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const resultCtx = resultCanvas.getContext('2d');
+        const shortcutsHint = document.getElementById('shortcutsHint');
+        const cornerElements = [
+            document.getElementById('corner0'),
+            document.getElementById('corner1'),
+            document.getElementById('corner2'),
+            document.getElementById('corner3')
+        ];
+
+        // Initialize
+        function init() {
+            setupEventListeners();
+            hideCorners();
+        }
+
+        function setupEventListeners() {
+            // Paste handling
+            document.addEventListener('paste', handlePaste);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && originalImage) {
+                    performCrop();
+                }
+                if (e.key === 'Escape') {
+                    closeResult();
+                }
+            });
+
+            // Drag and drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    loadImageFile(file);
+                }
+            });
+
+            // Corner dragging
+            cornerElements.forEach((el, index) => {
+                el.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    startDrag(index, e);
+                });
+            });
+
+            // Canvas container click - move nearest corner
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (!originalImage || isDragging) return;
+                if (e.target.classList.contains('corner-point')) return;
+
+                const rect = imageCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Check if click is within image bounds
+                if (x < 0 || x > rect.width || y < 0 || y > rect.height) return;
+
+                // Find nearest corner
+                const imageX = x / rect.width;
+                const imageY = y / rect.height;
+
+                let nearestIndex = 0;
+                let nearestDist = Infinity;
+
+                corners.forEach((corner, i) => {
+                    const dist = Math.hypot(corner.x - imageX, corner.y - imageY);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestIndex = i;
+                    }
+                });
+
+                // Move nearest corner to click position
+                corners[nearestIndex] = { x: imageX, y: imageY };
+                updateCornerPositions();
+                updateSelectionOverlay();
+            });
+
+            // Mouse move for crosshair and drag
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    handleDrag(e);
+                }
+                // Always update crosshair and zoom when over canvas
+                updateCrosshair(e);
+            });
+
+            canvasContainer.addEventListener('mouseenter', () => {
+                if (originalImage) {
+                    crosshair.classList.add('active');
+                    canvasContainer.style.cursor = 'none';
+                }
+            });
+
+            canvasContainer.addEventListener('mouseleave', () => {
+                if (!isDragging) {
+                    crosshair.classList.remove('active');
+                    canvasContainer.style.cursor = 'default';
+                }
+            });
+
+            document.addEventListener('mouseup', stopDrag);
+
+            // Window resize
+            window.addEventListener('resize', handleResize);
+        }
+
+        function handlePaste(e) {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    loadImageFile(file);
+                    break;
+                }
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) loadImageFile(file);
+        }
+
+        function loadImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    displayImage();
+                    resetCorners();
+                    showCorners();
+                    updateButtons(true);
+                    shortcutsHint.classList.remove('hidden');
+                    document.getElementById('instructions').textContent =
+                        'Click to move nearest corner, drag for fine-tuning';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayImage() {
+            if (!originalImage) return;
+
+            const containerRect = canvasContainer.getBoundingClientRect();
+            const containerWidth = containerRect.width - 60;
+            const containerHeight = containerRect.height - 60;
+
+            const imgRatio = originalImage.width / originalImage.height;
+            const containerRatio = containerWidth / containerHeight;
+
+            let displayWidth, displayHeight;
+
+            if (imgRatio > containerRatio) {
+                displayWidth = containerWidth;
+                displayHeight = containerWidth / imgRatio;
+            } else {
+                displayHeight = containerHeight;
+                displayWidth = containerHeight * imgRatio;
+            }
+
+            displayScale = displayWidth / originalImage.width;
+
+            imageCanvas.width = originalImage.width;
+            imageCanvas.height = originalImage.height;
+            imageCanvas.style.width = displayWidth + 'px';
+            imageCanvas.style.height = displayHeight + 'px';
+            imageCanvas.style.display = 'block';
+
+            ctx.drawImage(originalImage, 0, 0);
+
+            dropZone.classList.add('hidden');
+
+            // Update overlay size
+            selectionOverlay.style.width = displayWidth + 'px';
+            selectionOverlay.style.height = displayHeight + 'px';
+            selectionOverlay.style.left = imageCanvas.offsetLeft + 'px';
+            selectionOverlay.style.top = imageCanvas.offsetTop + 'px';
+
+            updateCornerPositions();
+            updateSelectionOverlay();
+        }
+
+        function resetCorners() {
+            corners = [
+                { x: 0.1, y: 0.1 },
+                { x: 0.9, y: 0.1 },
+                { x: 0.9, y: 0.9 },
+                { x: 0.1, y: 0.9 }
+            ];
+        }
+
+        function showCorners() {
+            cornerElements.forEach(el => el.style.display = 'block');
+            selectionOverlay.style.display = 'block';
+        }
+
+        function hideCorners() {
+            cornerElements.forEach(el => el.style.display = 'none');
+            selectionOverlay.style.display = 'none';
+        }
+
+        function updateCornerPositions() {
+            if (!originalImage) return;
+
+            const rect = imageCanvas.getBoundingClientRect();
+            const containerRect = canvasContainer.getBoundingClientRect();
+
+            corners.forEach((corner, i) => {
+                const screenX = rect.left - containerRect.left + corner.x * rect.width;
+                const screenY = rect.top - containerRect.top + corner.y * rect.height;
+                cornerElements[i].style.left = screenX + 'px';
+                cornerElements[i].style.top = screenY + 'px';
+            });
+        }
+
+        function updateSelectionOverlay() {
+            if (!originalImage) return;
+
+            const rect = imageCanvas.getBoundingClientRect();
+
+            // Update overlay position and size
+            selectionOverlay.style.width = rect.width + 'px';
+            selectionOverlay.style.height = rect.height + 'px';
+
+            const containerRect = canvasContainer.getBoundingClientRect();
+            selectionOverlay.style.left = (rect.left - containerRect.left) + 'px';
+            selectionOverlay.style.top = (rect.top - containerRect.top) + 'px';
+
+            const points = corners.map(c =>
+                `${c.x * rect.width},${c.y * rect.height}`
+            ).join(' ');
+
+            selectionPolygon.setAttribute('points', points);
+        }
+
+        function startDrag(index, e) {
+            isDragging = true;
+            dragIndex = index;
+            cornerElements[index].classList.add('dragging');
+            canvasContainer.style.cursor = 'none';
+            // Keep crosshair active during drag
+            crosshair.classList.add('active');
+        }
+
+        function handleDrag(e) {
+            if (!isDragging || dragIndex < 0) return;
+
+            const rect = imageCanvas.getBoundingClientRect();
+            let x = (e.clientX - rect.left) / rect.width;
+            let y = (e.clientY - rect.top) / rect.height;
+
+            // Clamp to image bounds
+            x = Math.max(0, Math.min(1, x));
+            y = Math.max(0, Math.min(1, y));
+
+            corners[dragIndex] = { x, y };
+            updateCornerPositions();
+            updateSelectionOverlay();
+        }
+
+        function stopDrag() {
+            if (isDragging && dragIndex >= 0) {
+                cornerElements[dragIndex].classList.remove('dragging');
+            }
+            isDragging = false;
+            dragIndex = -1;
+            if (originalImage) {
+                canvasContainer.style.cursor = 'none';
+            }
+        }
+
+        function updateCrosshair(e) {
+            if (!originalImage) return;
+
+            // Don't show crosshair when result panel is visible and mouse is over it
+            if (resultPanel.classList.contains('visible')) {
+                const resultRect = resultPanel.getBoundingClientRect();
+                if (e.clientX >= resultRect.left) {
+                    crosshair.classList.remove('active');
+                    return;
+                }
+            }
+
+            const rect = imageCanvas.getBoundingClientRect();
+
+            // Check if mouse is over the image (with some padding for dragging)
+            const isOverImage = e.clientX >= rect.left - 50 && e.clientX <= rect.right + 50 &&
+                               e.clientY >= rect.top - 50 && e.clientY <= rect.bottom + 50;
+
+            if (!isOverImage && !isDragging) {
+                crosshair.classList.remove('active');
+                canvasContainer.style.cursor = 'default';
+                return;
+            }
+
+            crosshair.classList.add('active');
+            if (!e.target.classList.contains('corner-point')) {
+                canvasContainer.style.cursor = 'none';
+            }
+
+            crosshair.style.left = e.clientX + 'px';
+            crosshair.style.top = e.clientY + 'px';
+
+            // Update zoom lens - clamp coordinates to image bounds for zoom
+            const clampedX = Math.max(rect.left, Math.min(rect.right, e.clientX));
+            const clampedY = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
+
+            const imageX = ((clampedX - rect.left) / rect.width) * originalImage.width;
+            const imageY = ((clampedY - rect.top) / rect.height) * originalImage.height;
+
+            const zoomLevel = 3;
+            const sourceSize = 90;
+
+            zoomCtx.imageSmoothingEnabled = false;
+            zoomCtx.clearRect(0, 0, 280, 280);
+            zoomCtx.drawImage(
+                originalImage,
+                imageX - sourceSize / 2,
+                imageY - sourceSize / 2,
+                sourceSize,
+                sourceSize,
+                0,
+                0,
+                280,
+                280
+            );
+        }
+
+        function handleResize() {
+            if (originalImage) {
+                displayImage();
+            }
+        }
+
+        function updateButtons(enabled) {
+            document.getElementById('cropBtn').disabled = !enabled;
+            document.getElementById('resetBtn').disabled = !enabled;
+        }
+
+        // Perspective transformation
+        function performCrop() {
+            if (!originalImage) return;
+
+            // Get corner positions in image pixel coordinates
+            const srcCorners = corners.map(c => ({
+                x: c.x * originalImage.width,
+                y: c.y * originalImage.height
+            }));
+
+            // Calculate output dimensions based on the quadrilateral
+            const topWidth = Math.hypot(
+                srcCorners[1].x - srcCorners[0].x,
+                srcCorners[1].y - srcCorners[0].y
+            );
+            const bottomWidth = Math.hypot(
+                srcCorners[2].x - srcCorners[3].x,
+                srcCorners[2].y - srcCorners[3].y
+            );
+            const leftHeight = Math.hypot(
+                srcCorners[3].x - srcCorners[0].x,
+                srcCorners[3].y - srcCorners[0].y
+            );
+            const rightHeight = Math.hypot(
+                srcCorners[2].x - srcCorners[1].x,
+                srcCorners[2].y - srcCorners[1].y
+            );
+
+            const outputWidth = Math.round(Math.max(topWidth, bottomWidth));
+            const outputHeight = Math.round(Math.max(leftHeight, rightHeight));
+
+            resultCanvas.width = outputWidth;
+            resultCanvas.height = outputHeight;
+
+            // Destination corners (rectangle)
+            const dstCorners = [
+                { x: 0, y: 0 },
+                { x: outputWidth, y: 0 },
+                { x: outputWidth, y: outputHeight },
+                { x: 0, y: outputHeight }
+            ];
+
+            // Compute the perspective transformation matrix
+            const matrix = computePerspectiveTransform(srcCorners, dstCorners);
+
+            // Get source image data
+            const srcCanvas = document.createElement('canvas');
+            srcCanvas.width = originalImage.width;
+            srcCanvas.height = originalImage.height;
+            const srcCtx = srcCanvas.getContext('2d');
+            srcCtx.drawImage(originalImage, 0, 0);
+            const srcData = srcCtx.getImageData(0, 0, originalImage.width, originalImage.height);
+
+            // Create output image data
+            const dstData = resultCtx.createImageData(outputWidth, outputHeight);
+
+            // Apply inverse transformation for each destination pixel
+            for (let y = 0; y < outputHeight; y++) {
+                for (let x = 0; x < outputWidth; x++) {
+                    // Apply inverse transform to find source coordinates
+                    const src = applyPerspectiveTransform(matrix, x, y);
+
+                    // Bilinear interpolation
+                    const srcX = src.x;
+                    const srcY = src.y;
+
+                    if (srcX >= 0 && srcX < originalImage.width - 1 &&
+                        srcY >= 0 && srcY < originalImage.height - 1) {
+
+                        const x0 = Math.floor(srcX);
+                        const y0 = Math.floor(srcY);
+                        const x1 = x0 + 1;
+                        const y1 = y0 + 1;
+                        const xFrac = srcX - x0;
+                        const yFrac = srcY - y0;
+
+                        const dstIdx = (y * outputWidth + x) * 4;
+
+                        for (let c = 0; c < 4; c++) {
+                            const v00 = srcData.data[(y0 * originalImage.width + x0) * 4 + c];
+                            const v01 = srcData.data[(y0 * originalImage.width + x1) * 4 + c];
+                            const v10 = srcData.data[(y1 * originalImage.width + x0) * 4 + c];
+                            const v11 = srcData.data[(y1 * originalImage.width + x1) * 4 + c];
+
+                            const v0 = v00 * (1 - xFrac) + v01 * xFrac;
+                            const v1 = v10 * (1 - xFrac) + v11 * xFrac;
+                            const v = v0 * (1 - yFrac) + v1 * yFrac;
+
+                            dstData.data[dstIdx + c] = Math.round(v);
+                        }
+                    }
+                }
+            }
+
+            resultCtx.putImageData(dstData, 0, 0);
+
+            // Show result panel
+            resultPanel.classList.add('visible');
+            document.getElementById('downloadBtn').disabled = false;
+        }
+
+        // Compute perspective transformation matrix using homography
+        function computePerspectiveTransform(src, dst) {
+            // We need to find the inverse transform: from dst to src
+            // This allows us to iterate over destination pixels and find source
+
+            // Build the 8x8 matrix for solving the homography
+            // For each point: dst -> src transformation
+            const A = [];
+            const b = [];
+
+            for (let i = 0; i < 4; i++) {
+                const sx = src[i].x;
+                const sy = src[i].y;
+                const dx = dst[i].x;
+                const dy = dst[i].y;
+
+                // Two equations per point for dst -> src
+                A.push([dx, dy, 1, 0, 0, 0, -sx * dx, -sx * dy]);
+                A.push([0, 0, 0, dx, dy, 1, -sy * dx, -sy * dy]);
+                b.push(sx);
+                b.push(sy);
+            }
+
+            // Solve using Gaussian elimination
+            const h = solveLinearSystem(A, b);
+
+            return {
+                h11: h[0], h12: h[1], h13: h[2],
+                h21: h[3], h22: h[4], h23: h[5],
+                h31: h[6], h32: h[7], h33: 1
+            };
+        }
+
+        function solveLinearSystem(A, b) {
+            const n = A.length;
+
+            // Augmented matrix
+            const aug = A.map((row, i) => [...row, b[i]]);
+
+            // Forward elimination with partial pivoting
+            for (let col = 0; col < n; col++) {
+                // Find pivot
+                let maxRow = col;
+                for (let row = col + 1; row < n; row++) {
+                    if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) {
+                        maxRow = row;
+                    }
+                }
+                [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+
+                // Eliminate
+                for (let row = col + 1; row < n; row++) {
+                    const factor = aug[row][col] / aug[col][col];
+                    for (let j = col; j <= n; j++) {
+                        aug[row][j] -= factor * aug[col][j];
+                    }
+                }
+            }
+
+            // Back substitution
+            const x = new Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                x[i] = aug[i][n];
+                for (let j = i + 1; j < n; j++) {
+                    x[i] -= aug[i][j] * x[j];
+                }
+                x[i] /= aug[i][i];
+            }
+
+            return x;
+        }
+
+        function applyPerspectiveTransform(m, x, y) {
+            const w = m.h31 * x + m.h32 * y + m.h33;
+            return {
+                x: (m.h11 * x + m.h12 * y + m.h13) / w,
+                y: (m.h21 * x + m.h22 * y + m.h23) / w
+            };
+        }
+
+        function closeResult() {
+            resultPanel.classList.remove('visible');
+        }
+
+        function downloadResult() {
+            const link = document.createElement('a');
+            link.download = 'croppy-result.png';
+            link.href = resultCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function resetTool() {
+            originalImage = null;
+            imageCanvas.style.display = 'none';
+            dropZone.classList.remove('hidden');
+            hideCorners();
+            resultPanel.classList.remove('visible');
+            updateButtons(false);
+            shortcutsHint.classList.add('hidden');
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('instructions').textContent =
+                'Paste or drop an image to start';
+        }
+
+        // Detect OS for keyboard hints
+        if (!navigator.platform.includes('Mac')) {
+            document.getElementById('pasteKey').textContent = 'Ctrl+V';
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

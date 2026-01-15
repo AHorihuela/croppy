@@ -1,0 +1,2832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Croppy Video - Perspective Correction for Video</title>
+    <meta name="description" content="Free online tool to fix perspective distortion in videos. Extract and straighten screen recordings from any angle.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' fill='none' stroke='%23e94560' stroke-width='8' rx='8'/><circle cx='20' cy='20' r='8' fill='%23e94560'/><circle cx='80' cy='20' r='8' fill='%23e94560'/><circle cx='80' cy='80' r='8' fill='%23e94560'/><circle cx='20' cy='80' r='8' fill='%23e94560'/></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: rgba(22, 33, 62, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .toolbar-brand {
+            font-size: 20px;
+            font-weight: 600;
+            color: #e94560;
+            margin-right: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .toolbar-brand span {
+            color: #888;
+            font-weight: 400;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(255,255,255,0.15);
+            margin: 0 8px;
+        }
+
+        .toolbar button {
+            background: rgba(15, 52, 96, 0.8);
+            color: #eee;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toolbar button:hover {
+            background: rgba(26, 74, 122, 0.9);
+            border-color: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+
+        .toolbar button.primary {
+            background: linear-gradient(135deg, #e94560 0%, #c73e54 100%);
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .toolbar button.primary:hover {
+            background: linear-gradient(135deg, #ff5a75 0%, #e94560 100%);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.4);
+        }
+
+        .toolbar button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toolbar button.active {
+            background: rgba(233, 69, 96, 0.25);
+            border: 1px solid rgba(233, 69, 96, 0.5);
+            box-shadow: 0 0 12px rgba(233, 69, 96, 0.2);
+        }
+
+        .toolbar button.active:hover {
+            background: rgba(233, 69, 96, 0.35);
+        }
+
+        .mode-tabs {
+            display: flex;
+            background: rgba(0,0,0,0.2);
+            border-radius: 6px;
+            padding: 3px;
+            margin-right: 8px;
+        }
+
+        .mode-tab {
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .mode-tab:hover {
+            color: rgba(255,255,255,0.8);
+        }
+
+        .mode-tab.active {
+            background: rgba(233, 69, 96, 0.3);
+            color: #e94560;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 30px;
+        }
+
+        #frameCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: none;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+        }
+
+        .drop-zone {
+            position: absolute;
+            inset: 30px;
+            border: 2px dashed rgba(233, 69, 96, 0.3);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            transition: all 0.3s ease;
+            background: rgba(233, 69, 96, 0.02);
+            cursor: pointer;
+        }
+
+        .drop-zone:hover {
+            border-color: rgba(233, 69, 96, 0.5);
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .drop-zone.drag-over {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.1);
+            transform: scale(1.01);
+        }
+
+        .drop-zone.hidden {
+            display: none;
+        }
+
+        .drop-zone-icon {
+            width: 80px;
+            height: 80px;
+            background: rgba(233, 69, 96, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .drop-zone-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: #e94560;
+            opacity: 0.8;
+        }
+
+        .drop-zone-text {
+            font-size: 20px;
+            color: rgba(255,255,255,0.7);
+            font-weight: 500;
+        }
+
+        .drop-zone-subtext {
+            font-size: 14px;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .corner-point {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #e94560;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            z-index: 10;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.5), 0 0 0 4px rgba(233, 69, 96, 0.2);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .corner-point::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .corner-point:hover {
+            transform: translate(-50%, -50%) scale(1.15);
+            box-shadow: 0 4px 16px rgba(233, 69, 96, 0.6), 0 0 0 6px rgba(233, 69, 96, 0.3);
+        }
+
+        .corner-point.dragging {
+            cursor: grabbing;
+            transform: translate(-50%, -50%) scale(1.25);
+        }
+
+        /* Suggested corner points from edge detection */
+        .suggested-corner {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: transparent;
+            border: 2px dashed #4ecdc4;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 0 8px rgba(78, 205, 196, 0.5);
+        }
+
+        .suggested-corner.visible {
+            opacity: 1;
+        }
+
+        .suggested-corner::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .edge-suggestion-hint {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(78, 205, 196, 0.9);
+            color: #1a1a2e;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .edge-suggestion-hint.visible {
+            opacity: 1;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        .selection-overlay {
+            position: absolute;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .selection-overlay svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Crosshair cursor */
+        .crosshair-container {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .crosshair-container.active {
+            display: block;
+        }
+
+        .crosshair-lines {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            transform: translate(-50%, -50%);
+        }
+
+        .crosshair-lines::before,
+        .crosshair-lines::after {
+            content: '';
+            position: absolute;
+            background: rgba(233, 69, 96, 0.8);
+        }
+
+        .crosshair-lines::before {
+            width: 1px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+        }
+
+        .crosshair-lines::after {
+            height: 1px;
+            width: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 8px rgba(233, 69, 96, 0.5);
+        }
+
+        .crosshair-center {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #e94560;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background: transparent;
+        }
+
+        .zoom-lens {
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            border: 3px solid rgba(233, 69, 96, 0.8);
+            border-radius: 50%;
+            overflow: hidden;
+            transform: translate(25px, -160px);
+            background: #000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3);
+        }
+
+        .zoom-lens canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .zoom-lens::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .zoom-lens::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(233, 69, 96, 0.9);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            box-shadow: 0 0 10px rgba(233, 69, 96, 0.3);
+        }
+
+        .zoom-crosshair {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 1px;
+            height: 100%;
+            background: rgba(233, 69, 96, 0.4);
+            transform: translateX(-50%);
+            z-index: 2;
+        }
+
+        .zoom-crosshair-h {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: rgba(233, 69, 96, 0.4);
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        /* Timeline */
+        .timeline-container {
+            background: rgba(15, 52, 96, 0.5);
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            display: none;
+        }
+
+        .timeline-container.visible {
+            display: block;
+        }
+
+        .timeline-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .timeline-info {
+            font-size: 13px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .timeline-info strong {
+            color: #e94560;
+        }
+
+        .timeline-track {
+            height: 60px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: rgba(233, 69, 96, 0.3);
+            transition: width 0.1s;
+        }
+
+        .timeline-playhead {
+            position: absolute;
+            top: 0;
+            width: 3px;
+            height: 100%;
+            background: #e94560;
+            box-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+            transform: translateX(-50%);
+        }
+
+        .keyframe-marker {
+            position: absolute;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: #ffd700;
+            border: 2px solid #fff;
+            border-radius: 2px;
+            transform: translateX(-50%) rotate(45deg);
+            cursor: pointer;
+            z-index: 5;
+            transition: transform 0.15s;
+        }
+
+        .keyframe-marker:hover {
+            transform: translateX(-50%) rotate(45deg) scale(1.2);
+        }
+
+        .keyframe-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 215, 0, 0.2);
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .timeline-frames {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+        }
+
+        .timeline-frame {
+            flex: 1;
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Progress overlay */
+        .progress-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .progress-overlay.visible {
+            display: flex;
+        }
+
+        .progress-box {
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 16px;
+            padding: 40px 60px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .progress-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar-container {
+            width: 300px;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            border-radius: 4px;
+            transition: width 0.1s;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        /* Result panel */
+        .result-panel {
+            position: fixed;
+            top: 0;
+            right: -50%;
+            bottom: 0;
+            width: 50%;
+            background: rgba(22, 33, 62, 0.98);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+            transition: right 0.3s ease;
+            box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+        }
+
+        .result-panel.visible {
+            right: 0;
+        }
+
+        .result-header {
+            padding: 16px 24px;
+            background: rgba(15, 52, 96, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .result-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .result-header button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #eee;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .result-header button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        .result-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            overflow: auto;
+            background: rgba(0,0,0,0.2);
+        }
+
+        #resultVideo {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            border-radius: 4px;
+        }
+
+        .result-actions {
+            padding: 16px 24px;
+            background: rgba(15, 52, 96, 0.3);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .export-section {
+            margin-bottom: 16px;
+        }
+
+        .export-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .export-section h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .export-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .export-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(233, 69, 96, 0.2);
+            border: 1px solid rgba(233, 69, 96, 0.4);
+            color: #e94560;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .export-btn:hover {
+            background: rgba(233, 69, 96, 0.3);
+            border-color: rgba(233, 69, 96, 0.6);
+        }
+
+        .export-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .export-btn.gif-btn {
+            background: rgba(100, 200, 150, 0.2);
+            border-color: rgba(100, 200, 150, 0.4);
+            color: #64c896;
+        }
+
+        .export-btn.gif-btn:hover {
+            background: rgba(100, 200, 150, 0.3);
+            border-color: rgba(100, 200, 150, 0.6);
+        }
+
+        .trim-controls {
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .trim-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .trim-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .trim-row label {
+            width: 80px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .trim-row input[type="range"] {
+            flex: 1;
+            height: 4px;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            cursor: pointer;
+        }
+
+        .trim-row input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #64c896;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .trim-row input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #64c896;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+        }
+
+        .trim-row span {
+            width: 40px;
+            text-align: right;
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .trim-row select {
+            flex: 1;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 4px;
+            color: #eee;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .trim-row select:focus {
+            outline: none;
+            border-color: rgba(100, 200, 150, 0.5);
+        }
+
+        #gifProgress {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .gif-frame-previews {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .gif-frame-preview {
+            flex: 1;
+            text-align: center;
+        }
+
+        .gif-frame-preview label {
+            display: block;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .gif-frame-preview canvas {
+            width: 100%;
+            max-width: 140px;
+            height: auto;
+            border-radius: 4px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: #000;
+        }
+
+        .gif-frame-preview.start canvas {
+            border-color: rgba(100, 200, 150, 0.5);
+        }
+
+        .gif-frame-preview.end canvas {
+            border-color: rgba(233, 69, 96, 0.5);
+        }
+
+        /* Hidden elements */
+        #fileInput, #videoElement {
+            display: none;
+        }
+
+        /* Status messages */
+        .status-bar {
+            background: rgba(233, 69, 96, 0.1);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin: 20px;
+            font-size: 14px;
+            color: #e94560;
+            display: none;
+        }
+
+        .status-bar.visible {
+            display: block;
+        }
+
+        .status-bar.error {
+            background: rgba(255, 100, 100, 0.1);
+            border-color: rgba(255, 100, 100, 0.3);
+            color: #ff6b6b;
+        }
+
+        .status-bar.success {
+            background: rgba(100, 255, 150, 0.1);
+            border-color: rgba(100, 255, 150, 0.3);
+            color: #6f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <span class="toolbar-brand">Croppy</span>
+        <div class="mode-tabs">
+            <a href="index.html" class="mode-tab">Image</a>
+            <a href="video.html" class="mode-tab active">Video</a>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button onclick="document.getElementById('fileInput').click()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Open Video
+        </button>
+        <button id="addKeyframeBtn" disabled onclick="addKeyframeAtCurrentFrame()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Add Keyframe
+        </button>
+        <button id="edgeDetectBtn" onclick="toggleEdgeDetection()" title="Edge detection helps refine corner positions">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h4v4H4zM16 4h4v4h-4zM4 16h4v4H4zM16 16h4v4h-4z"/><path d="M8 6h8M6 8v8M18 8v8M8 18h8"/></svg>
+            Edge Detect
+        </button>
+        <button id="audioBtn" class="active" onclick="toggleAudio()" title="Include audio in output video">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
+            Audio
+        </button>
+        <button id="trackBtn" class="primary" disabled onclick="startTracking()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Process Video
+        </button>
+        <button id="downloadBtn" disabled onclick="downloadResult()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download
+        </button>
+        <button id="resetBtn" disabled onclick="resetTool()">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5"/></svg>
+            Reset
+        </button>
+    </div>
+
+    <div class="status-bar" id="statusBar"></div>
+
+    <!-- Crosshair cursor -->
+    <div class="crosshair-container" id="crosshair">
+        <div class="crosshair-lines"></div>
+        <div class="crosshair-center"></div>
+        <div class="zoom-lens">
+            <canvas id="zoomCanvas" width="280" height="280"></canvas>
+            <div class="zoom-crosshair"></div>
+            <div class="zoom-crosshair-h"></div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="canvas-container" id="canvasContainer">
+            <div class="drop-zone" id="dropZone">
+                <div class="drop-zone-icon">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+                    </svg>
+                </div>
+                <div class="drop-zone-text">Drop a video file here</div>
+                <div class="drop-zone-subtext">or click to browse • MP4, WebM, MOV supported</div>
+            </div>
+            <canvas id="frameCanvas"></canvas>
+            <div class="selection-overlay" id="selectionOverlay">
+                <svg>
+                    <defs>
+                        <pattern id="hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+                            <line x1="0" y1="0" x2="0" y2="10" stroke="rgba(233, 69, 96, 0.25)" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+                    <polygon id="selectionPolygon" fill="url(#hatch)" stroke="#e94560" stroke-width="2" stroke-dasharray="8 4"/>
+                </svg>
+            </div>
+            <div class="corner-point" id="corner0" data-index="0"></div>
+            <div class="corner-point" id="corner1" data-index="1"></div>
+            <div class="corner-point" id="corner2" data-index="2"></div>
+            <div class="corner-point" id="corner3" data-index="3"></div>
+            <div class="suggested-corner" id="suggested0"></div>
+            <div class="suggested-corner" id="suggested1"></div>
+            <div class="suggested-corner" id="suggested2"></div>
+            <div class="suggested-corner" id="suggested3"></div>
+            <div class="edge-suggestion-hint" id="edgeSuggestionHint">Press Enter to accept edge suggestions</div>
+            <div class="keyframe-indicator" id="keyframeIndicator" style="display: none;">KEYFRAME</div>
+        </div>
+
+        <div class="timeline-container" id="timelineContainer">
+            <div class="timeline-header">
+                <div class="timeline-info">
+                    Frame <strong id="currentFrame">1</strong> / <span id="totalFrames">0</span>
+                    &nbsp;|&nbsp;
+                    <span id="videoDuration">0:00</span>
+                    &nbsp;|&nbsp;
+                    <span id="trackingStatus" style="display: none;">Tracking: <strong id="trackingQualityText">--</strong></span>
+                </div>
+            </div>
+            <div class="timeline-track" id="timelineTrack">
+                <div class="timeline-progress" id="timelineProgress"></div>
+                <div class="timeline-playhead" id="timelinePlayhead" style="left: 0%"></div>
+            </div>
+        </div>
+
+        <div class="result-panel" id="resultPanel">
+            <div class="result-header">
+                <h3>Processed Video</h3>
+                <button onclick="closeResult()">Close</button>
+            </div>
+            <div class="result-content">
+                <video id="resultVideo" controls></video>
+            </div>
+            <div class="result-actions">
+                <div class="export-section">
+                    <h4>Export Options</h4>
+                    <div class="export-row">
+                        <button onclick="downloadResult()" class="export-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Download WebM
+                        </button>
+                    </div>
+                </div>
+                <div class="export-section">
+                    <h4>GIF Export</h4>
+                    <div class="gif-frame-previews">
+                        <div class="gif-frame-preview start">
+                            <label>Start Frame</label>
+                            <canvas id="gifStartPreview" width="160" height="90"></canvas>
+                        </div>
+                        <div class="gif-frame-preview end">
+                            <label>End Frame</label>
+                            <canvas id="gifEndPreview" width="160" height="90"></canvas>
+                        </div>
+                    </div>
+                    <div class="trim-controls">
+                        <div class="trim-row">
+                            <label>Start Frame</label>
+                            <input type="range" id="gifStartFrame" min="0" max="100" value="0" oninput="updateGifPreview()">
+                            <span id="gifStartLabel">0</span>
+                        </div>
+                        <div class="trim-row">
+                            <label>End Frame</label>
+                            <input type="range" id="gifEndFrame" min="0" max="100" value="100" oninput="updateGifPreview()">
+                            <span id="gifEndLabel">100</span>
+                        </div>
+                        <div class="trim-row">
+                            <label>Scale</label>
+                            <select id="gifScale">
+                                <option value="1">100%</option>
+                                <option value="0.75">75%</option>
+                                <option value="0.5" selected>50%</option>
+                                <option value="0.25">25%</option>
+                            </select>
+                        </div>
+                        <div class="trim-row">
+                            <label>Quality</label>
+                            <select id="gifQuality">
+                                <option value="1">Highest (slower)</option>
+                                <option value="5">High</option>
+                                <option value="10" selected>Medium</option>
+                                <option value="20">Low (faster)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="export-row">
+                        <button onclick="generateGif()" class="export-btn gif-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                                <line x1="7" y1="2" x2="7" y2="22"/>
+                                <line x1="17" y1="2" x2="17" y2="22"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                                <line x1="2" y1="7" x2="7" y2="7"/>
+                                <line x1="2" y1="17" x2="7" y2="17"/>
+                                <line x1="17" y1="7" x2="22" y2="7"/>
+                                <line x1="17" y1="17" x2="22" y2="17"/>
+                            </svg>
+                            Generate GIF
+                        </button>
+                        <span id="gifProgress"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-overlay" id="progressOverlay">
+        <div class="progress-box">
+            <div class="progress-title" id="progressTitle">Processing video...</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+    </div>
+
+    <input type="file" id="fileInput" accept="video/*" onchange="handleFileSelect(event)">
+    <video id="videoElement" muted></video>
+
+    <script>
+        // State
+        let videoFile = null;
+        let videoElement = document.getElementById('videoElement');
+        let frames = [];
+        let frameRate = 30;
+        let currentFrameIndex = 0;
+        let processedBlob = null;
+        let processedFramesCache = []; // Store for GIF generation
+
+        // Processing settings
+        const BOUNDARY_MARGIN = 0.02;   // Min distance from edge (2%)
+
+        // Corner positions (normalized 0-1)
+        let corners = [
+            { x: 0.1, y: 0.1 },
+            { x: 0.9, y: 0.1 },
+            { x: 0.9, y: 0.9 },
+            { x: 0.1, y: 0.9 }
+        ];
+
+        // Manual keyframes: { frameIndex: [corner0, corner1, corner2, corner3] }
+        let keyframes = {};
+
+        // Tracked corners per frame
+        let trackedCorners = [];
+
+        let isDragging = false;
+        let dragIndex = -1;
+
+        // DOM elements
+        const canvasContainer = document.getElementById('canvasContainer');
+        const frameCanvas = document.getElementById('frameCanvas');
+        const ctx = frameCanvas.getContext('2d');
+        const dropZone = document.getElementById('dropZone');
+        const selectionOverlay = document.getElementById('selectionOverlay');
+        const selectionPolygon = document.getElementById('selectionPolygon');
+        const timelineContainer = document.getElementById('timelineContainer');
+        const progressOverlay = document.getElementById('progressOverlay');
+        const resultPanel = document.getElementById('resultPanel');
+        const resultVideo = document.getElementById('resultVideo');
+        const statusBar = document.getElementById('statusBar');
+        const crosshair = document.getElementById('crosshair');
+        const zoomCanvas = document.getElementById('zoomCanvas');
+        const zoomCtx = zoomCanvas.getContext('2d');
+        const cornerElements = [
+            document.getElementById('corner0'),
+            document.getElementById('corner1'),
+            document.getElementById('corner2'),
+            document.getElementById('corner3')
+        ];
+        const suggestedCornerElements = [
+            document.getElementById('suggested0'),
+            document.getElementById('suggested1'),
+            document.getElementById('suggested2'),
+            document.getElementById('suggested3')
+        ];
+        const edgeSuggestionHint = document.getElementById('edgeSuggestionHint');
+        let suggestedCorners = null; // Stores suggested positions from edge detection
+
+        function showStatus(message, type = '') {
+            statusBar.textContent = message;
+            statusBar.className = 'status-bar visible ' + type;
+        }
+
+        function hideStatus() {
+            statusBar.classList.remove('visible');
+        }
+
+        // ============================================
+        // EDGE DETECTION FUNCTIONS
+        // ============================================
+
+        // Edge detection settings
+        let edgeDetectionEnabled = false;
+        let audioEnabled = true;  // Include audio in output video
+        const EDGE_SEARCH_MARGIN = 0.06;  // Search within 6% of expected position (conservative)
+        const EDGE_BLEND_WEIGHT = 0.3;    // How much edge detection influences (0-1)
+        const EDGE_MAX_DISTANCE = 0.04;   // Reject suggestions more than 4% away from expected
+
+        // Get grayscale image data from canvas
+        function getGrayscaleData(imageData) {
+            const data = imageData.data;
+            const gray = new Float32Array(imageData.width * imageData.height);
+            for (let i = 0; i < gray.length; i++) {
+                const idx = i * 4;
+                // Luminosity method
+                gray[i] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+            }
+            return gray;
+        }
+
+        // Apply Gaussian blur (3x3 kernel)
+        function gaussianBlur(gray, width, height) {
+            const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+            const kSum = 16;
+            const result = new Float32Array(gray.length);
+
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let sum = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const idx = (y + ky) * width + (x + kx);
+                            const ki = (ky + 1) * 3 + (kx + 1);
+                            sum += gray[idx] * kernel[ki];
+                        }
+                    }
+                    result[y * width + x] = sum / kSum;
+                }
+            }
+            return result;
+        }
+
+        // Sobel edge detection
+        function sobelEdgeDetection(gray, width, height) {
+            const gx = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+            const gy = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+            const magnitude = new Float32Array(gray.length);
+            const direction = new Float32Array(gray.length);
+
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    let sumX = 0, sumY = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const idx = (y + ky) * width + (x + kx);
+                            const ki = (ky + 1) * 3 + (kx + 1);
+                            sumX += gray[idx] * gx[ki];
+                            sumY += gray[idx] * gy[ki];
+                        }
+                    }
+                    const idx = y * width + x;
+                    magnitude[idx] = Math.sqrt(sumX * sumX + sumY * sumY);
+                    direction[idx] = Math.atan2(sumY, sumX);
+                }
+            }
+            return { magnitude, direction };
+        }
+
+        // Find strong edges near expected corner position
+        function findEdgesNearCorner(edges, width, height, expectedCorner, cornerIndex) {
+            const { magnitude, direction } = edges;
+            const margin = EDGE_SEARCH_MARGIN;
+
+            // Determine corner characteristics based on index
+            // 0: top-left, 1: top-right, 2: bottom-right, 3: bottom-left
+            const isLeftCorner = (cornerIndex === 0 || cornerIndex === 3);
+            const isTopCorner = (cornerIndex === 0 || cornerIndex === 1);
+
+            // Define search region - exclude image boundaries (first/last 2% of image)
+            const boundaryMargin = 0.02;
+            const searchX1 = Math.max(Math.floor(boundaryMargin * width), Math.floor((expectedCorner.x - margin) * width));
+            const searchX2 = Math.min(Math.floor((1 - boundaryMargin) * width), Math.floor((expectedCorner.x + margin) * width));
+            const searchY1 = Math.max(Math.floor(boundaryMargin * height), Math.floor((expectedCorner.y - margin) * height));
+            const searchY2 = Math.min(Math.floor((1 - boundaryMargin) * height), Math.floor((expectedCorner.y + margin) * height));
+
+            // Find strongest horizontal and vertical edges in search region
+            let bestHLine = null, bestVLine = null;
+            let bestHScore = 0, bestVScore = 0;
+            const expectedY = expectedCorner.y * height;
+            const expectedX = expectedCorner.x * width;
+
+            // Scan for horizontal edges (look for consistent horizontal lines)
+            for (let y = searchY1; y <= searchY2; y++) {
+                let lineScore = 0;
+                let lineCount = 0;
+                for (let x = searchX1; x <= searchX2; x++) {
+                    const idx = y * width + x;
+                    const mag = magnitude[idx];
+                    const dir = direction[idx];
+                    // Check if edge is roughly horizontal (direction near ±π/2)
+                    // Widened tolerance to 0.6 radians (~34°) for perspective distortion
+                    if (mag > 30 && Math.abs(Math.abs(dir) - Math.PI / 2) < 0.6) {
+                        lineScore += mag;
+                        lineCount++;
+                    }
+                }
+                // Weight by proximity to expected position (closer = much better)
+                const distanceFromExpected = Math.abs(y - expectedY) / height;
+                const proximityBonus = 1.0 - distanceFromExpected * 5;
+
+                // Bias towards outer edges: prefer top edges for top corners, bottom for bottom
+                let outerBias = 1.0;
+                if (isTopCorner && y < expectedY) outerBias = 1.3;  // Prefer edges above expected
+                if (!isTopCorner && y > expectedY) outerBias = 1.3; // Prefer edges below expected
+
+                const adjustedScore = lineScore * Math.max(0.2, proximityBonus) * outerBias;
+
+                if (lineCount > (searchX2 - searchX1) * 0.25 && adjustedScore > bestHScore) {
+                    bestHScore = adjustedScore;
+                    bestHLine = y / height;
+                }
+            }
+
+            // Scan for vertical edges
+            for (let x = searchX1; x <= searchX2; x++) {
+                let lineScore = 0;
+                let lineCount = 0;
+                for (let y = searchY1; y <= searchY2; y++) {
+                    const idx = y * width + x;
+                    const mag = magnitude[idx];
+                    const dir = direction[idx];
+                    // Check if edge is roughly vertical (direction near 0 or π)
+                    // Widened tolerance to 0.6 radians (~34°) for perspective distortion
+                    if (mag > 30 && (Math.abs(dir) < 0.6 || Math.abs(Math.abs(dir) - Math.PI) < 0.6)) {
+                        lineScore += mag;
+                        lineCount++;
+                    }
+                }
+                // Weight by proximity to expected position (closer = much better)
+                const distanceFromExpected = Math.abs(x - expectedX) / width;
+                const proximityBonus = 1.0 - distanceFromExpected * 5;
+
+                // Bias towards outer edges: prefer left edges for left corners, right for right
+                let outerBias = 1.0;
+                if (isLeftCorner && x < expectedX) outerBias = 1.3;  // Prefer edges left of expected
+                if (!isLeftCorner && x > expectedX) outerBias = 1.3; // Prefer edges right of expected
+
+                const adjustedScore = lineScore * Math.max(0.2, proximityBonus) * outerBias;
+
+                if (lineCount > (searchY2 - searchY1) * 0.25 && adjustedScore > bestVScore) {
+                    bestVScore = adjustedScore;
+                    bestVLine = x / width;
+                }
+            }
+
+            // Return intersection point if both edges found
+            if (bestHLine !== null && bestVLine !== null) {
+                // Check if detected corner is too far from expected
+                const dx = Math.abs(bestVLine - expectedCorner.x);
+                const dy = Math.abs(bestHLine - expectedCorner.y);
+                if (dx > EDGE_MAX_DISTANCE || dy > EDGE_MAX_DISTANCE) {
+                    return null; // Reject - moved too far from expected
+                }
+
+                // Normalize confidence to 0-1 range (scores typically range 0-50000)
+                const rawConfidence = Math.min(bestHScore, bestVScore);
+                const normalizedConfidence = Math.min(1.0, rawConfidence / 10000);
+                return {
+                    x: bestVLine,
+                    y: bestHLine,
+                    confidence: normalizedConfidence
+                };
+            }
+            return null;
+        }
+
+        // Detect corners using edge detection on current frame
+        function detectCornersFromEdges(frameIndex, referenceCorners) {
+            if (!edgeDetectionEnabled || frameIndex < 0 || frameIndex >= frames.length) {
+                return Promise.resolve(null);
+            }
+
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Create temporary canvas for edge detection
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = img.width;
+                    tempCanvas.height = img.height;
+                    tempCtx.drawImage(img, 0, 0);
+
+                    const imageData = tempCtx.getImageData(0, 0, img.width, img.height);
+                    const gray = getGrayscaleData(imageData);
+                    const blurred = gaussianBlur(gray, img.width, img.height);
+                    const edges = sobelEdgeDetection(blurred, img.width, img.height);
+
+                    const detectedCorners = [];
+                    let totalConfidence = 0;
+
+                    for (let i = 0; i < 4; i++) {
+                        const detected = findEdgesNearCorner(
+                            edges,
+                            img.width,
+                            img.height,
+                            referenceCorners[i],
+                            i
+                        );
+
+                        if (detected && detected.confidence > 0.1) {
+                            detectedCorners.push(detected);
+                            totalConfidence += detected.confidence;
+                        } else {
+                            // Fall back to reference corner
+                            detectedCorners.push({
+                                x: referenceCorners[i].x,
+                                y: referenceCorners[i].y,
+                                confidence: 0
+                            });
+                        }
+                    }
+
+                    resolve({
+                        corners: detectedCorners,
+                        avgConfidence: totalConfidence / 4
+                    });
+                };
+                img.onerror = () => resolve(null);
+                img.src = frames[frameIndex];
+            });
+        }
+
+        // Show suggested corner positions
+        function showSuggestedCorners(suggestions) {
+            if (!suggestions) {
+                hideSuggestedCorners();
+                return;
+            }
+
+            suggestedCorners = suggestions;
+            const rect = frameCanvas.getBoundingClientRect();
+            const containerRect = canvasContainer.getBoundingClientRect();
+            const threshold = 0.01; // 1% of image size
+            let visibleCount = 0;
+
+            for (let i = 0; i < 4; i++) {
+                // Only show suggestion if it's meaningfully different from current corner
+                const dx = Math.abs(suggestions[i].x - corners[i].x);
+                const dy = Math.abs(suggestions[i].y - corners[i].y);
+                const isDifferent = dx > threshold || dy > threshold;
+
+                if (isDifferent) {
+                    const screenX = rect.left - containerRect.left + suggestions[i].x * rect.width;
+                    const screenY = rect.top - containerRect.top + suggestions[i].y * rect.height;
+                    suggestedCornerElements[i].style.left = screenX + 'px';
+                    suggestedCornerElements[i].style.top = screenY + 'px';
+                    suggestedCornerElements[i].classList.add('visible');
+                    visibleCount++;
+                } else {
+                    suggestedCornerElements[i].classList.remove('visible');
+                }
+            }
+
+            // Only show hint if at least one suggestion is visible
+            if (visibleCount > 0) {
+                edgeSuggestionHint.classList.add('visible');
+            } else {
+                edgeSuggestionHint.classList.remove('visible');
+            }
+        }
+
+        // Hide suggested corner positions
+        function hideSuggestedCorners() {
+            suggestedCorners = null;
+            suggestedCornerElements.forEach(el => el.classList.remove('visible'));
+            edgeSuggestionHint.classList.remove('visible');
+        }
+
+        // Accept the suggested corner positions
+        function acceptSuggestedCorners() {
+            if (!suggestedCorners) return;
+
+            corners = suggestedCorners.map(c => ({ x: c.x, y: c.y }));
+            updateCornerPositions();
+            updateSelectionOverlay();
+            hideSuggestedCorners();
+            addKeyframeAtCurrentFrame();
+            showStatus('Edge suggestions applied and keyframe created', 'success');
+        }
+
+        // Suggest corners using edge detection (called when navigating)
+        async function suggestCornersForFrame(frameIndex) {
+            hideSuggestedCorners(); // Clear any previous suggestions
+
+            if (!edgeDetectionEnabled) {
+                return;
+            }
+
+            // Don't suggest for keyframes
+            if (keyframes[frameIndex]) {
+                return;
+            }
+
+            // Use current corners as reference
+            const result = await detectCornersFromEdges(frameIndex, corners);
+
+            if (result && result.avgConfidence > 0.12) {
+                // Check if suggestions are meaningfully different from current corners
+                let hasMeaningfulDifference = false;
+                const threshold = 0.01; // 1% of image size
+
+                for (let i = 0; i < 4; i++) {
+                    const dx = Math.abs(result.corners[i].x - corners[i].x);
+                    const dy = Math.abs(result.corners[i].y - corners[i].y);
+                    if (dx > threshold || dy > threshold) {
+                        hasMeaningfulDifference = true;
+                        break;
+                    }
+                }
+
+                if (hasMeaningfulDifference) {
+                    showSuggestedCorners(result.corners);
+                    showStatus(`Edge detection: ${(result.avgConfidence * 100).toFixed(0)}% confidence - Press Enter to accept`, '');
+                }
+            }
+        }
+
+        // Toggle edge detection
+        function toggleEdgeDetection() {
+            edgeDetectionEnabled = !edgeDetectionEnabled;
+            const btn = document.getElementById('edgeDetectBtn');
+            if (btn) {
+                btn.classList.toggle('active', edgeDetectionEnabled);
+            }
+            showStatus(`Edge detection ${edgeDetectionEnabled ? 'enabled' : 'disabled'}`, '');
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('audioBtn');
+            if (btn) {
+                btn.classList.toggle('active', audioEnabled);
+            }
+            showStatus(`Audio ${audioEnabled ? 'enabled' : 'disabled'}`, '');
+        }
+
+        // ============================================
+        // END EDGE DETECTION FUNCTIONS
+        // ============================================
+
+        // Initialize
+        function init() {
+            setupEventListeners();
+            hideCorners();
+        }
+
+        function setupEventListeners() {
+            // Drag and drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('video/')) {
+                    loadVideoFile(file);
+                }
+            });
+
+            // Click to browse
+            dropZone.addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            // Paste from clipboard
+            document.addEventListener('paste', (e) => {
+                const files = e.clipboardData?.files;
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    if (file.type.startsWith('video/')) {
+                        loadVideoFile(file);
+                    } else {
+                        showStatus('Please paste a video file', 'error');
+                    }
+                }
+            });
+
+            // Corner dragging
+            cornerElements.forEach((el, index) => {
+                el.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    startDrag(index, e);
+                });
+            });
+
+            // Canvas click - move nearest corner
+            canvasContainer.addEventListener('mousedown', (e) => {
+                if (!frames.length || isDragging) return;
+                if (e.target.classList.contains('corner-point')) return;
+
+                const rect = frameCanvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                if (x < 0 || x > rect.width || y < 0 || y > rect.height) return;
+
+                const imageX = x / rect.width;
+                const imageY = y / rect.height;
+
+                let nearestIndex = 0;
+                let nearestDist = Infinity;
+
+                corners.forEach((corner, i) => {
+                    const dist = Math.hypot(corner.x - imageX, corner.y - imageY);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestIndex = i;
+                    }
+                });
+
+                corners[nearestIndex] = { x: imageX, y: imageY };
+                updateCornerPositions();
+                updateSelectionOverlay();
+
+                // Auto-create keyframe when user clicks to adjust corners
+                addKeyframeAtCurrentFrame();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) handleDrag(e);
+            });
+
+            document.addEventListener('mouseup', stopDrag);
+
+            // Crosshair cursor for canvas
+            canvasContainer.addEventListener('mousemove', updateCrosshair);
+            canvasContainer.addEventListener('mouseenter', () => {
+                if (frames.length > 0) {
+                    crosshair.classList.add('active');
+                }
+            });
+            canvasContainer.addEventListener('mouseleave', () => {
+                crosshair.classList.remove('active');
+            });
+
+            // Timeline scrubbing
+            const timelineTrack = document.getElementById('timelineTrack');
+            timelineTrack.addEventListener('click', (e) => {
+                if (!frames.length) return;
+                const rect = timelineTrack.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                const frameIndex = Math.floor(percent * frames.length);
+                goToFrame(Math.max(0, Math.min(frames.length - 1, frameIndex)));
+            });
+
+            window.addEventListener('resize', handleResize);
+
+            // Click on edge suggestion hint to accept
+            edgeSuggestionHint.addEventListener('click', () => {
+                acceptSuggestedCorners();
+            });
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (!frames.length) return;
+
+                // Enter to accept edge suggestions
+                if (e.key === 'Enter' && suggestedCorners) {
+                    e.preventDefault();
+                    acceptSuggestedCorners();
+                    return;
+                }
+
+                // Arrow keys for frame navigation
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    if (currentFrameIndex > 0) {
+                        goToFrame(currentFrameIndex - 1);
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    if (currentFrameIndex < frames.length - 1) {
+                        goToFrame(currentFrameIndex + 1);
+                    }
+                }
+            });
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) loadVideoFile(file);
+        }
+
+        async function loadVideoFile(file) {
+            // Clean up previous video data to prevent memory leaks
+            if (videoElement.src && videoElement.src.startsWith('blob:')) {
+                URL.revokeObjectURL(videoElement.src);
+            }
+            if (resultVideo.src && resultVideo.src.startsWith('blob:')) {
+                URL.revokeObjectURL(resultVideo.src);
+            }
+            frames = [];
+            processedFramesCache = [];
+            keyframes = {};
+            trackedCorners = [];
+
+            videoFile = file;
+            showStatus('Loading video...', '');
+
+            const url = URL.createObjectURL(file);
+            videoElement.src = url;
+
+            videoElement.onloadedmetadata = async () => {
+                frameRate = 30; // Default, could detect from file
+
+                showStatus('Extracting frames...', '');
+                await extractFrames();
+
+                if (frames.length > 0) {
+                    displayFrame(0);
+                    showCorners();
+                    timelineContainer.classList.add('visible');
+                    document.getElementById('totalFrames').textContent = frames.length;
+                    document.getElementById('videoDuration').textContent = formatTime(videoElement.duration);
+                    updateButtons(true);
+                    showStatus(`Loaded ${frames.length} frames. Select the screen corners on the first frame.`, 'success');
+                }
+            };
+
+            videoElement.onerror = () => {
+                showStatus('Error loading video. Try a different format.', 'error');
+            };
+        }
+
+        async function extractFrames() {
+            frames = [];
+            const canvas = document.createElement('canvas');
+            const tempCtx = canvas.getContext('2d');
+
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+
+            const duration = videoElement.duration;
+
+            // Use lower effective FPS for extraction to save memory
+            // Extract at 15fps instead of 30fps for videos longer than 10 seconds
+            const effectiveFps = duration > 10 ? 15 : frameRate;
+            const totalFrames = Math.floor(duration * effectiveFps);
+            const maxFrames = Math.min(totalFrames, 600); // Higher limit with lower fps
+
+            // Store the effective framerate for later
+            frameRate = effectiveFps;
+
+            for (let i = 0; i < maxFrames; i++) {
+                const time = (i / effectiveFps);
+                videoElement.currentTime = time;
+
+                await new Promise(resolve => {
+                    videoElement.onseeked = () => {
+                        tempCtx.drawImage(videoElement, 0, 0);
+                        frames.push(canvas.toDataURL('image/jpeg', 0.8));
+                        resolve();
+                    };
+                });
+
+                // Update progress
+                const progress = ((i + 1) / maxFrames * 100).toFixed(0);
+                showStatus(`Extracting frames... ${progress}% (${effectiveFps}fps)`, '');
+            }
+        }
+
+        function displayFrame(index) {
+            if (index < 0 || index >= frames.length) return;
+
+            currentFrameIndex = index;
+            const img = new Image();
+            img.onload = () => {
+                const containerRect = canvasContainer.getBoundingClientRect();
+                const containerWidth = containerRect.width - 60;
+                const containerHeight = containerRect.height - 60;
+
+                const imgRatio = img.width / img.height;
+                const containerRatio = containerWidth / containerHeight;
+
+                let displayWidth, displayHeight;
+
+                if (imgRatio > containerRatio) {
+                    displayWidth = containerWidth;
+                    displayHeight = containerWidth / imgRatio;
+                } else {
+                    displayHeight = containerHeight;
+                    displayWidth = containerHeight * imgRatio;
+                }
+
+                frameCanvas.width = img.width;
+                frameCanvas.height = img.height;
+                frameCanvas.style.width = displayWidth + 'px';
+                frameCanvas.style.height = displayHeight + 'px';
+                frameCanvas.style.display = 'block';
+
+                ctx.drawImage(img, 0, 0);
+                dropZone.classList.add('hidden');
+
+                updateCornerPositions();
+                updateSelectionOverlay();
+                updateTimelinePlayhead();
+            };
+            img.src = frames[index];
+
+            document.getElementById('currentFrame').textContent = index + 1;
+        }
+
+        // Get interpolated corners for a frame based on surrounding keyframes
+        function getInterpolatedCorners(frameIndex) {
+            const keyframeIndices = Object.keys(keyframes).map(Number).sort((a, b) => a - b);
+            if (keyframeIndices.length === 0) return null;
+            if (keyframeIndices.length === 1) return keyframes[keyframeIndices[0]].map(c => ({...c}));
+
+            // Find surrounding keyframes
+            let startFrame = keyframeIndices[0];
+            let endFrame = keyframeIndices[keyframeIndices.length - 1];
+
+            for (let i = 0; i < keyframeIndices.length - 1; i++) {
+                if (keyframeIndices[i] <= frameIndex && keyframeIndices[i + 1] >= frameIndex) {
+                    startFrame = keyframeIndices[i];
+                    endFrame = keyframeIndices[i + 1];
+                    break;
+                }
+            }
+
+            // If frame is before first keyframe or after last keyframe
+            if (frameIndex <= keyframeIndices[0]) {
+                return keyframes[keyframeIndices[0]].map(c => ({...c}));
+            }
+            if (frameIndex >= keyframeIndices[keyframeIndices.length - 1]) {
+                return keyframes[keyframeIndices[keyframeIndices.length - 1]].map(c => ({...c}));
+            }
+
+            // Interpolate between start and end keyframes
+            const startCorners = keyframes[startFrame];
+            const endCorners = keyframes[endFrame];
+            const range = endFrame - startFrame;
+            const progress = (frameIndex - startFrame) / range;
+
+            // Cosine interpolation for smoother motion
+            const t = (1 - Math.cos(progress * Math.PI)) / 2;
+
+            return startCorners.map((start, i) => ({
+                x: start.x + (endCorners[i].x - start.x) * t,
+                y: start.y + (endCorners[i].y - start.y) * t
+            }));
+        }
+
+        function goToFrame(index) {
+            displayFrame(index);
+
+            // If we have a keyframe at this position, load those corners
+            if (keyframes[index]) {
+                corners = keyframes[index].map(c => ({...c}));
+                updateCornerPositions();
+                updateSelectionOverlay();
+                hideSuggestedCorners(); // No suggestions for keyframes
+            }
+            // Otherwise if we have tracked corners (post-processing), use them
+            else if (trackedCorners[index]) {
+                corners = trackedCorners[index].map(c => ({...c}));
+                updateCornerPositions();
+                updateSelectionOverlay();
+
+                // Try edge detection suggestions (async, non-blocking)
+                suggestCornersForFrame(index).catch(err => {
+                    console.warn('Edge detection failed:', err);
+                });
+            }
+            // Before processing: interpolate between keyframes if we have at least 2
+            else {
+                const interpolated = getInterpolatedCorners(index);
+                if (interpolated) {
+                    corners = interpolated;
+                    updateCornerPositions();
+                    updateSelectionOverlay();
+                }
+
+                // Try edge detection suggestions (async, non-blocking)
+                suggestCornersForFrame(index).catch(err => {
+                    console.warn('Edge detection failed:', err);
+                });
+            }
+
+            updateKeyframeIndicator();
+        }
+
+        function updateTimelinePlayhead() {
+            const divisor = Math.max(1, frames.length - 1);
+            const percent = (currentFrameIndex / divisor) * 100;
+            document.getElementById('timelinePlayhead').style.left = percent + '%';
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function showCorners() {
+            cornerElements.forEach(el => el.style.display = 'block');
+            selectionOverlay.style.display = 'block';
+        }
+
+        function hideCorners() {
+            cornerElements.forEach(el => el.style.display = 'none');
+            selectionOverlay.style.display = 'none';
+        }
+
+        function updateCrosshair(e) {
+            if (!frames.length) return;
+
+            const rect = frameCanvas.getBoundingClientRect();
+            const x = e.clientX;
+            const y = e.clientY;
+
+            // Check if mouse is within canvas bounds (with padding for dragging)
+            const isOverCanvas = (
+                x >= rect.left - 50 && x <= rect.right + 50 &&
+                y >= rect.top - 50 && y <= rect.bottom + 50
+            );
+
+            if (!isOverCanvas && !isDragging) {
+                crosshair.classList.remove('active');
+                canvasContainer.style.cursor = 'default';
+                return;
+            }
+
+            crosshair.classList.add('active');
+            if (!e.target.classList.contains('corner-point')) {
+                canvasContainer.style.cursor = 'none';
+            }
+
+            crosshair.style.left = x + 'px';
+            crosshair.style.top = y + 'px';
+
+            // Update zoom lens - clamp coordinates to canvas bounds for zoom
+            const clampedX = Math.max(rect.left, Math.min(rect.right, x));
+            const clampedY = Math.max(rect.top, Math.min(rect.bottom, y));
+
+            // Draw zoomed view from the frameCanvas
+            if (frameCanvas.width > 0) {
+                const imageX = ((clampedX - rect.left) / rect.width) * frameCanvas.width;
+                const imageY = ((clampedY - rect.top) / rect.height) * frameCanvas.height;
+
+                const sourceSize = 90;
+
+                zoomCtx.imageSmoothingEnabled = false;
+                zoomCtx.clearRect(0, 0, 280, 280);
+                zoomCtx.drawImage(
+                    frameCanvas,
+                    imageX - sourceSize / 2,
+                    imageY - sourceSize / 2,
+                    sourceSize,
+                    sourceSize,
+                    0,
+                    0,
+                    280,
+                    280
+                );
+            }
+        }
+
+        function updateCornerPositions() {
+            const rect = frameCanvas.getBoundingClientRect();
+            const containerRect = canvasContainer.getBoundingClientRect();
+
+            corners.forEach((corner, i) => {
+                const screenX = rect.left - containerRect.left + corner.x * rect.width;
+                const screenY = rect.top - containerRect.top + corner.y * rect.height;
+                cornerElements[i].style.left = screenX + 'px';
+                cornerElements[i].style.top = screenY + 'px';
+            });
+        }
+
+        function updateSelectionOverlay() {
+            const rect = frameCanvas.getBoundingClientRect();
+            const containerRect = canvasContainer.getBoundingClientRect();
+
+            selectionOverlay.style.width = rect.width + 'px';
+            selectionOverlay.style.height = rect.height + 'px';
+            selectionOverlay.style.left = (rect.left - containerRect.left) + 'px';
+            selectionOverlay.style.top = (rect.top - containerRect.top) + 'px';
+
+            const points = corners.map(c =>
+                `${c.x * rect.width},${c.y * rect.height}`
+            ).join(' ');
+
+            selectionPolygon.setAttribute('points', points);
+        }
+
+        function startDrag(index, e) {
+            isDragging = true;
+            dragIndex = index;
+            cornerElements[index].classList.add('dragging');
+            crosshair.classList.remove('active');
+            hideSuggestedCorners(); // Clear suggestions when user manually adjusts
+        }
+
+        function handleDrag(e) {
+            if (!isDragging || dragIndex < 0) return;
+
+            const rect = frameCanvas.getBoundingClientRect();
+            let x = (e.clientX - rect.left) / rect.width;
+            let y = (e.clientY - rect.top) / rect.height;
+
+            x = Math.max(0, Math.min(1, x));
+            y = Math.max(0, Math.min(1, y));
+
+            corners[dragIndex] = { x, y };
+            updateCornerPositions();
+            updateSelectionOverlay();
+        }
+
+        function stopDrag() {
+            if (isDragging && dragIndex >= 0) {
+                cornerElements[dragIndex].classList.remove('dragging');
+                // Auto-create keyframe when user adjusts corners
+                if (frames.length > 0) {
+                    addKeyframeAtCurrentFrame();
+                }
+            }
+            isDragging = false;
+            dragIndex = -1;
+        }
+
+        function addKeyframeAtCurrentFrame() {
+            keyframes[currentFrameIndex] = corners.map(c => ({...c}));
+            updateKeyframeMarkers();
+            updateKeyframeIndicator();
+            showStatus(`Keyframe added at frame ${currentFrameIndex + 1}`, 'success');
+            setTimeout(() => {
+                if (Object.keys(keyframes).length > 0) {
+                    showStatus(`${Object.keys(keyframes).length} keyframe(s) set. Click "Process Video" when ready.`, '');
+                }
+            }, 1500);
+        }
+
+        function deleteKeyframe(frameIndex) {
+            if (!keyframes[frameIndex]) return;
+
+            delete keyframes[frameIndex];
+            updateKeyframeMarkers();
+            updateKeyframeIndicator();
+
+            const count = Object.keys(keyframes).length;
+            if (count === 0) {
+                showStatus('Keyframe deleted. No keyframes remaining.', '');
+            } else {
+                showStatus(`Keyframe deleted. ${count} keyframe(s) remaining.`, '');
+            }
+        }
+
+        function updateKeyframeMarkers() {
+            // Remove existing markers
+            document.querySelectorAll('.keyframe-marker').forEach(el => el.remove());
+
+            // Add markers for each keyframe
+            const track = document.getElementById('timelineTrack');
+            const totalFrames = frames.length;
+
+            Object.keys(keyframes).forEach(frameIdx => {
+                const percent = (parseInt(frameIdx) / (totalFrames - 1)) * 100;
+                const marker = document.createElement('div');
+                marker.className = 'keyframe-marker';
+                marker.style.left = percent + '%';
+                marker.title = `Keyframe at frame ${parseInt(frameIdx) + 1} (double-click to delete)`;
+                marker.onclick = (e) => {
+                    e.stopPropagation();
+                    goToFrame(parseInt(frameIdx));
+                };
+                marker.ondblclick = (e) => {
+                    e.stopPropagation();
+                    deleteKeyframe(parseInt(frameIdx));
+                };
+                track.appendChild(marker);
+            });
+        }
+
+        function updateKeyframeIndicator() {
+            const indicator = document.getElementById('keyframeIndicator');
+            if (keyframes[currentFrameIndex]) {
+                indicator.style.display = 'block';
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
+
+        function handleResize() {
+            if (frames.length > 0) {
+                displayFrame(currentFrameIndex);
+                // Update suggested corner positions if visible
+                if (suggestedCorners) {
+                    showSuggestedCorners(suggestedCorners);
+                }
+            }
+        }
+
+        function updateButtons(enabled) {
+            document.getElementById('trackBtn').disabled = !enabled;
+            document.getElementById('resetBtn').disabled = !enabled;
+            document.getElementById('addKeyframeBtn').disabled = !enabled;
+        }
+
+        // Main processing function
+        async function startTracking() {
+            // Ensure frame 0 has a keyframe
+            if (!keyframes[0]) {
+                keyframes[0] = corners.map(c => ({...c}));
+            }
+
+            // Check if we have at least one keyframe
+            if (Object.keys(keyframes).length === 0) {
+                showStatus('Please set corners on at least the first frame.', 'error');
+                return;
+            }
+
+            progressOverlay.classList.add('visible');
+            document.getElementById('progressTitle').textContent = 'Interpolating keyframes...';
+
+            try {
+                // Step 1: Interpolate corners between keyframes
+                await interpolateKeyframes();
+
+                // Step 2: Apply perspective transform to all frames
+                document.getElementById('progressTitle').textContent = 'Applying perspective correction...';
+                const processedFrames = await applyPerspectiveToAllFrames();
+
+                // Step 3: Encode to video
+                document.getElementById('progressTitle').textContent = 'Encoding video...';
+                await encodeVideo(processedFrames);
+
+                progressOverlay.classList.remove('visible');
+                resultPanel.classList.add('visible');
+                document.getElementById('downloadBtn').disabled = false;
+                showStatus('Processing complete!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                progressOverlay.classList.remove('visible');
+                showStatus('Error processing video: ' + err.message, 'error');
+            }
+        }
+
+        async function interpolateKeyframes() {
+            trackedCorners = [];
+
+            // Sort keyframe indices
+            const keyframeIndices = Object.keys(keyframes).map(k => parseInt(k)).sort((a, b) => a - b);
+
+            // Ensure we have at least the first frame
+            if (keyframeIndices.length === 0 || keyframeIndices[0] !== 0) {
+                keyframeIndices.unshift(0);
+                keyframes[0] = corners.map(c => ({...c}));
+            }
+
+            // Add last frame as keyframe if not present (copy from last keyframe)
+            const lastKeyframe = keyframeIndices[keyframeIndices.length - 1];
+            if (lastKeyframe !== frames.length - 1) {
+                keyframeIndices.push(frames.length - 1);
+                keyframes[frames.length - 1] = keyframes[lastKeyframe].map(c => ({...c}));
+            }
+
+            document.getElementById('progressText').textContent = `Interpolating between ${keyframeIndices.length} keyframes...`;
+
+            // Interpolate between each pair of keyframes
+            for (let ki = 0; ki < keyframeIndices.length - 1; ki++) {
+                const startFrame = keyframeIndices[ki];
+                const endFrame = keyframeIndices[ki + 1];
+                const startCorners = keyframes[startFrame];
+                const endCorners = keyframes[endFrame];
+
+                for (let f = startFrame; f <= endFrame; f++) {
+                    // Calculate interpolation parameter (0 to 1)
+                    const t = (f - startFrame) / (endFrame - startFrame || 1);
+
+                    // Apply cosine ease for smooth transitions
+                    const tSmooth = (1 - Math.cos(t * Math.PI)) / 2;
+
+                    // Interpolate each corner
+                    const interpolated = [];
+                    for (let c = 0; c < 4; c++) {
+                        interpolated.push({
+                            x: startCorners[c].x + (endCorners[c].x - startCorners[c].x) * tSmooth,
+                            y: startCorners[c].y + (endCorners[c].y - startCorners[c].y) * tSmooth
+                        });
+                    }
+
+                    trackedCorners[f] = interpolated;
+
+                    // Update progress (first pass: 0-20%)
+                    const progress = ((f / frames.length) * 20).toFixed(0);
+                    document.getElementById('progressBar').style.width = progress + '%';
+                }
+
+                // Yield to UI
+                await new Promise(r => setTimeout(r, 0));
+            }
+
+            // Second pass: edge detection refinement (if enabled)
+            if (edgeDetectionEnabled) {
+                document.getElementById('progressText').textContent = 'Refining with edge detection...';
+
+                for (let f = 0; f < frames.length; f++) {
+                    // Skip keyframes - they're manually set
+                    if (keyframes[f]) continue;
+
+                    // Apply edge detection refinement
+                    const result = await detectCornersFromEdges(f, trackedCorners[f]);
+
+                    if (result && result.avgConfidence > 0.15) {
+                        // Blend detected corners with interpolated corners
+                        for (let i = 0; i < 4; i++) {
+                            if (result.corners[i].confidence > 0.1) {
+                                const blend = Math.min(result.corners[i].confidence * EDGE_BLEND_WEIGHT, 0.4);
+                                trackedCorners[f][i] = {
+                                    x: trackedCorners[f][i].x * (1 - blend) + result.corners[i].x * blend,
+                                    y: trackedCorners[f][i].y * (1 - blend) + result.corners[i].y * blend
+                                };
+                            }
+                        }
+                    }
+
+                    // Update progress (second pass: 20-40%)
+                    const progress = (20 + (f / frames.length) * 20).toFixed(0);
+                    document.getElementById('progressBar').style.width = progress + '%';
+
+                    // Yield every 5 frames for UI updates
+                    if (f % 5 === 0) {
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
+            }
+        }
+
+        async function applyPerspectiveToAllFrames() {
+            const processedFrames = [];
+
+            // Calculate output dimensions from first frame corners
+            const firstCorners = trackedCorners[0];
+            const srcCorners = firstCorners.map(c => ({
+                x: c.x * frameCanvas.width,
+                y: c.y * frameCanvas.height
+            }));
+
+            const topWidth = Math.hypot(srcCorners[1].x - srcCorners[0].x, srcCorners[1].y - srcCorners[0].y);
+            const bottomWidth = Math.hypot(srcCorners[2].x - srcCorners[3].x, srcCorners[2].y - srcCorners[3].y);
+            const leftHeight = Math.hypot(srcCorners[3].x - srcCorners[0].x, srcCorners[3].y - srcCorners[0].y);
+            const rightHeight = Math.hypot(srcCorners[2].x - srcCorners[1].x, srcCorners[2].y - srcCorners[1].y);
+
+            const outputWidth = Math.round(Math.max(topWidth, bottomWidth));
+            const outputHeight = Math.round(Math.max(leftHeight, rightHeight));
+
+            const outputCanvas = document.createElement('canvas');
+            outputCanvas.width = outputWidth;
+            outputCanvas.height = outputHeight;
+            const outCtx = outputCanvas.getContext('2d');
+
+            for (let i = 0; i < frames.length; i++) {
+                const progress = (50 + (i / frames.length) * 40).toFixed(0);
+                document.getElementById('progressBar').style.width = progress + '%';
+                document.getElementById('progressText').textContent = `Processing frame ${i + 1} / ${frames.length}`;
+
+                // Get corners for this frame
+                const frameCorners = trackedCorners[i];
+                const frameSrcCorners = frameCorners.map(c => ({
+                    x: c.x * frameCanvas.width,
+                    y: c.y * frameCanvas.height
+                }));
+
+                const dstCorners = [
+                    { x: 0, y: 0 },
+                    { x: outputWidth, y: 0 },
+                    { x: outputWidth, y: outputHeight },
+                    { x: 0, y: outputHeight }
+                ];
+
+                // Apply perspective transform
+                const transformed = await applyPerspectiveTransform(
+                    frames[i], frameSrcCorners, dstCorners, outputWidth, outputHeight
+                );
+
+                processedFrames.push(transformed);
+
+                if (i % 5 === 0) {
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+
+            return processedFrames;
+        }
+
+        async function applyPerspectiveTransform(frameDataUrl, srcCorners, dstCorners, outputWidth, outputHeight) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const srcCanvas = document.createElement('canvas');
+                    srcCanvas.width = img.width;
+                    srcCanvas.height = img.height;
+                    const srcCtx = srcCanvas.getContext('2d');
+                    srcCtx.drawImage(img, 0, 0);
+                    const srcData = srcCtx.getImageData(0, 0, img.width, img.height);
+
+                    const outCanvas = document.createElement('canvas');
+                    outCanvas.width = outputWidth;
+                    outCanvas.height = outputHeight;
+                    const outCtx = outCanvas.getContext('2d');
+                    const dstData = outCtx.createImageData(outputWidth, outputHeight);
+
+                    const matrix = computePerspectiveMatrix(srcCorners, dstCorners);
+
+                    for (let y = 0; y < outputHeight; y++) {
+                        for (let x = 0; x < outputWidth; x++) {
+                            const src = applyMatrix(matrix, x, y);
+                            const srcX = src.x;
+                            const srcY = src.y;
+
+                            if (srcX >= 0 && srcX < img.width - 1 && srcY >= 0 && srcY < img.height - 1) {
+                                const x0 = Math.floor(srcX);
+                                const y0 = Math.floor(srcY);
+                                const x1 = x0 + 1;
+                                const y1 = y0 + 1;
+                                const xFrac = srcX - x0;
+                                const yFrac = srcY - y0;
+
+                                const dstIdx = (y * outputWidth + x) * 4;
+
+                                for (let c = 0; c < 4; c++) {
+                                    const v00 = srcData.data[(y0 * img.width + x0) * 4 + c];
+                                    const v01 = srcData.data[(y0 * img.width + x1) * 4 + c];
+                                    const v10 = srcData.data[(y1 * img.width + x0) * 4 + c];
+                                    const v11 = srcData.data[(y1 * img.width + x1) * 4 + c];
+
+                                    const v0 = v00 * (1 - xFrac) + v01 * xFrac;
+                                    const v1 = v10 * (1 - xFrac) + v11 * xFrac;
+                                    const v = v0 * (1 - yFrac) + v1 * yFrac;
+
+                                    dstData.data[dstIdx + c] = Math.round(v);
+                                }
+                            }
+                        }
+                    }
+
+                    outCtx.putImageData(dstData, 0, 0);
+                    resolve(outCanvas.toDataURL('image/jpeg', 0.9));
+                };
+                img.src = frameDataUrl;
+            });
+        }
+
+        function computePerspectiveMatrix(src, dst) {
+            const A = [];
+            const b = [];
+
+            for (let i = 0; i < 4; i++) {
+                const sx = src[i].x;
+                const sy = src[i].y;
+                const dx = dst[i].x;
+                const dy = dst[i].y;
+
+                A.push([dx, dy, 1, 0, 0, 0, -sx * dx, -sx * dy]);
+                A.push([0, 0, 0, dx, dy, 1, -sy * dx, -sy * dy]);
+                b.push(sx);
+                b.push(sy);
+            }
+
+            const h = solveLinearSystem(A, b);
+
+            // Handle singular matrix case
+            if (!h) {
+                // Return identity-like matrix as fallback
+                return {
+                    h11: 1, h12: 0, h13: 0,
+                    h21: 0, h22: 1, h23: 0,
+                    h31: 0, h32: 0, h33: 1
+                };
+            }
+
+            return {
+                h11: h[0], h12: h[1], h13: h[2],
+                h21: h[3], h22: h[4], h23: h[5],
+                h31: h[6], h32: h[7], h33: 1
+            };
+        }
+
+        function solveLinearSystem(A, b) {
+            const n = A.length;
+            const aug = A.map((row, i) => [...row, b[i]]);
+
+            for (let col = 0; col < n; col++) {
+                let maxRow = col;
+                for (let row = col + 1; row < n; row++) {
+                    if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) {
+                        maxRow = row;
+                    }
+                }
+                [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+
+                // Check for singular matrix (zero pivot)
+                if (Math.abs(aug[col][col]) < 1e-10) {
+                    return null; // Matrix is singular
+                }
+
+                for (let row = col + 1; row < n; row++) {
+                    const factor = aug[row][col] / aug[col][col];
+                    for (let j = col; j <= n; j++) {
+                        aug[row][j] -= factor * aug[col][j];
+                    }
+                }
+            }
+
+            const x = new Array(n);
+            for (let i = n - 1; i >= 0; i--) {
+                x[i] = aug[i][n];
+                for (let j = i + 1; j < n; j++) {
+                    x[i] -= aug[i][j] * x[j];
+                }
+                // Check for zero diagonal element
+                if (Math.abs(aug[i][i]) < 1e-10) {
+                    return null; // Matrix is singular
+                }
+                x[i] /= aug[i][i];
+            }
+
+            return x;
+        }
+
+        function applyMatrix(m, x, y) {
+            const w = m.h31 * x + m.h32 * y + m.h33;
+            // Handle degenerate case where w is zero or near-zero
+            if (Math.abs(w) < 1e-10) {
+                return { x: x, y: y }; // Return original point as fallback
+            }
+            return {
+                x: (m.h11 * x + m.h12 * y + m.h13) / w,
+                y: (m.h21 * x + m.h22 * y + m.h23) / w
+            };
+        }
+
+        async function encodeVideo(processedFrames) {
+            document.getElementById('progressBar').style.width = '95%';
+            document.getElementById('progressText').textContent = 'Creating video file...';
+
+            // Store frames for GIF generation
+            processedFramesCache = processedFrames;
+
+            // Update GIF trim controls
+            const totalFrames = processedFrames.length - 1;
+            document.getElementById('gifStartFrame').max = totalFrames;
+            document.getElementById('gifEndFrame').max = totalFrames;
+            document.getElementById('gifEndFrame').value = totalFrames;
+            document.getElementById('gifStartLabel').textContent = '0';
+            document.getElementById('gifEndLabel').textContent = totalFrames;
+
+            // Create a simple video using canvas recording
+            const firstImg = new Image();
+            await new Promise((r, reject) => {
+                firstImg.onload = r;
+                firstImg.onerror = reject;
+                firstImg.src = processedFrames[0];
+            });
+
+            const recordCanvas = document.createElement('canvas');
+            recordCanvas.width = firstImg.width;
+            recordCanvas.height = firstImg.height;
+            const recordCtx = recordCanvas.getContext('2d');
+
+            // Detect supported codec
+            const codecs = [
+                'video/webm;codecs=vp9,opus',
+                'video/webm;codecs=vp9',
+                'video/webm;codecs=vp8,opus',
+                'video/webm;codecs=vp8',
+                'video/webm'
+            ];
+            let mimeType = 'video/webm';
+            for (const codec of codecs) {
+                if (MediaRecorder.isTypeSupported(codec)) {
+                    mimeType = codec;
+                    break;
+                }
+            }
+            console.log('Using codec:', mimeType);
+
+            // Create video stream from canvas
+            const videoStream = recordCanvas.captureStream(frameRate);
+
+            // Create combined stream (optionally with audio)
+            let stream = null;
+            let audioContext = null;
+            let audioSource = null;
+            let audioDestination = null;
+            let mediaRecorder = null;
+
+            try {
+                if (audioEnabled && videoElement.src) {
+                    try {
+                        // Set up audio capture from video element
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        audioSource = audioContext.createMediaElementSource(videoElement);
+                        audioDestination = audioContext.createMediaStreamDestination();
+                        audioSource.connect(audioDestination);
+                        audioSource.connect(audioContext.destination); // Also play to speakers (muted by video element)
+
+                        // Combine video and audio tracks
+                        stream = new MediaStream([
+                            ...videoStream.getVideoTracks(),
+                            ...audioDestination.stream.getAudioTracks()
+                        ]);
+                        console.log('Recording with audio');
+                    } catch (e) {
+                        console.warn('Could not capture audio:', e);
+                        stream = videoStream;
+                    }
+                } else {
+                    stream = videoStream;
+                    console.log('Recording without audio');
+                }
+
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: mimeType,
+                    videoBitsPerSecond: 5000000
+                });
+
+                const chunks = [];
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        chunks.push(e.data);
+                    }
+                };
+
+                const recordingDone = new Promise((resolve, reject) => {
+                    mediaRecorder.onstop = () => {
+                        if (chunks.length === 0) {
+                            reject(new Error('No video data recorded'));
+                            return;
+                        }
+                        processedBlob = new Blob(chunks, { type: 'video/webm' });
+                        resultVideo.src = URL.createObjectURL(processedBlob);
+                        resolve();
+                    };
+                    mediaRecorder.onerror = reject;
+                });
+
+                // Request data every 100ms to ensure we capture frames
+                mediaRecorder.start(100);
+
+                // Start playing video for audio sync (if audio enabled)
+                if (audioEnabled && audioContext) {
+                    videoElement.muted = false;
+                    videoElement.currentTime = 0;
+                    videoElement.play().catch(e => console.warn('Could not play video for audio:', e));
+                }
+
+                // Draw each frame
+                for (let i = 0; i < processedFrames.length; i++) {
+                    const img = new Image();
+                    await new Promise((r, reject) => {
+                        img.onload = r;
+                        img.onerror = reject;
+                        img.src = processedFrames[i];
+                    });
+                    recordCtx.drawImage(img, 0, 0);
+
+                    // Wait for frame duration (slightly longer to ensure MediaRecorder captures)
+                    await new Promise(r => setTimeout(r, Math.max(1000 / frameRate, 50)));
+
+                    const progress = (95 + (i / processedFrames.length) * 5).toFixed(0);
+                    document.getElementById('progressBar').style.width = progress + '%';
+                }
+
+                // Draw last frame one more time and wait to ensure it's captured
+                await new Promise(r => setTimeout(r, 100));
+
+                mediaRecorder.stop();
+                await recordingDone;
+
+                document.getElementById('progressBar').style.width = '100%';
+                document.getElementById('progressText').textContent = 'Done!';
+            } finally {
+                // Clean up resources regardless of success or failure
+                if (audioContext) {
+                    videoElement.pause();
+                    videoElement.muted = true;
+                    audioContext.close().catch(() => {});
+                }
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            }
+        }
+
+        function downloadResult() {
+            if (!processedBlob) {
+                showStatus('No video to download', 'error');
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = 'croppy-video-result.webm';
+            link.href = URL.createObjectURL(processedBlob);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }, 100);
+        }
+
+        function updateGifPreview() {
+            const startFrame = parseInt(document.getElementById('gifStartFrame').value);
+            let endFrame = parseInt(document.getElementById('gifEndFrame').value);
+            document.getElementById('gifStartLabel').textContent = startFrame;
+            document.getElementById('gifEndLabel').textContent = endFrame;
+
+            // Ensure start < end
+            if (startFrame >= endFrame) {
+                endFrame = startFrame + 1;
+                document.getElementById('gifEndFrame').value = endFrame;
+                document.getElementById('gifEndLabel').textContent = endFrame;
+            }
+
+            // Update frame previews
+            updateGifFramePreview('gifStartPreview', startFrame);
+            updateGifFramePreview('gifEndPreview', endFrame);
+        }
+
+        function updateGifFramePreview(canvasId, frameIndex) {
+            if (processedFramesCache.length === 0) return;
+
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const clampedIndex = Math.min(Math.max(0, frameIndex), processedFramesCache.length - 1);
+
+            const img = new Image();
+            img.onload = () => {
+                // Guard against invalid images
+                if (img.height === 0 || img.width === 0) return;
+
+                // Set canvas size to match aspect ratio
+                const aspectRatio = img.width / img.height;
+                canvas.width = 160;
+                canvas.height = Math.round(160 / aspectRatio);
+
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.onerror = () => {
+                console.warn(`Failed to load preview frame ${clampedIndex}`);
+            };
+            img.src = processedFramesCache[clampedIndex];
+        }
+
+        async function generateGif() {
+            if (processedFramesCache.length === 0) {
+                showStatus('No processed frames available', 'error');
+                return;
+            }
+
+            // Check if running from file:// which doesn't support GIF workers
+            if (window.location.protocol === 'file:') {
+                showStatus('GIF export requires a web server. Run: python3 -m http.server', 'error');
+                return;
+            }
+
+            const startFrame = parseInt(document.getElementById('gifStartFrame').value);
+            const endFrame = Math.min(parseInt(document.getElementById('gifEndFrame').value), processedFramesCache.length - 1);
+            const scale = parseFloat(document.getElementById('gifScale').value);
+            const quality = parseInt(document.getElementById('gifQuality').value);
+
+            if (startFrame >= endFrame) {
+                showStatus('Start frame must be before end frame', 'error');
+                return;
+            }
+
+            const progressEl = document.getElementById('gifProgress');
+
+            try {
+                progressEl.textContent = 'Loading GIF encoder...';
+
+                // Load gif.js dynamically if not loaded
+                if (typeof GIF === 'undefined') {
+                    await loadGifJs();
+                }
+
+                progressEl.textContent = 'Preparing frames...';
+
+                // Get first frame to determine dimensions
+                const firstImg = new Image();
+                await new Promise((r, reject) => {
+                    firstImg.onload = r;
+                    firstImg.onerror = () => reject(new Error('Failed to load first frame'));
+                    firstImg.src = processedFramesCache[startFrame];
+                });
+
+                const width = Math.round(firstImg.width * scale);
+                const height = Math.round(firstImg.height * scale);
+
+                const gif = new GIF({
+                    workers: 2,
+                    quality: quality,
+                    width: width,
+                    height: height,
+                    workerScript: gifWorkerBlobUrl
+                });
+
+                // Create a temporary canvas for scaling
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // Add frames
+                const totalFrames = endFrame - startFrame + 1;
+                for (let i = startFrame; i <= endFrame; i++) {
+                    const img = new Image();
+                    await new Promise((r, reject) => {
+                        img.onload = r;
+                        img.onerror = () => reject(new Error(`Failed to load frame ${i}`));
+                        img.src = processedFramesCache[i];
+                    });
+
+                    tempCtx.drawImage(img, 0, 0, width, height);
+
+                    // Calculate delay (ms per frame)
+                    const delay = Math.round(1000 / frameRate);
+                    gif.addFrame(tempCtx, { copy: true, delay: delay });
+
+                    const progress = Math.round(((i - startFrame) / totalFrames) * 50);
+                    progressEl.textContent = `Adding frames: ${progress}%`;
+                }
+
+                progressEl.textContent = 'Encoding GIF...';
+
+                gif.on('progress', (p) => {
+                    const progress = 50 + Math.round(p * 50);
+                    progressEl.textContent = `Encoding: ${progress}%`;
+                });
+
+                gif.on('abort', () => {
+                    progressEl.textContent = '';
+                    showStatus('GIF generation cancelled', 'error');
+                });
+
+                gif.on('error', (error) => {
+                    progressEl.textContent = '';
+                    showStatus('Failed to generate GIF: ' + error, 'error');
+                    console.error('GIF encoding error:', error);
+                });
+
+                gif.on('finished', (blob) => {
+                    progressEl.textContent = '';
+
+                    // Download the GIF
+                    const link = document.createElement('a');
+                    link.download = 'croppy-result.gif';
+                    link.href = URL.createObjectURL(blob);
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(link.href);
+                    }, 100);
+
+                    showStatus(`GIF generated! ${totalFrames} frames, ${(blob.size / 1024 / 1024).toFixed(2)}MB`, 'success');
+                });
+
+                gif.render();
+            } catch (error) {
+                progressEl.textContent = '';
+                // Check if this is a CORS/local file issue
+                if (error.message.includes('Worker') || error.message.includes('origin')) {
+                    showStatus('GIF export requires a web server. Run: python3 -m http.server', 'error');
+                } else {
+                    showStatus('GIF generation failed: ' + error.message, 'error');
+                }
+                console.error('GIF generation error:', error);
+            }
+        }
+
+        let gifJsLoading = null;
+        let gifWorkerBlobUrl = null;
+
+        async function loadGifJs() {
+            // Guard against multiple concurrent loads
+            if (gifJsLoading) return gifJsLoading;
+            if (typeof GIF !== 'undefined' && gifWorkerBlobUrl) return Promise.resolve();
+
+            gifJsLoading = (async () => {
+                // Load main gif.js script
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js';
+                    script.crossOrigin = 'anonymous';
+
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Timeout loading gif.js'));
+                    }, 15000);
+
+                    script.onload = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                    script.onerror = () => {
+                        clearTimeout(timeout);
+                        reject(new Error('Failed to load gif.js'));
+                    };
+                    document.head.appendChild(script);
+                });
+
+                // Fetch worker script and create blob URL to avoid CORS issues
+                try {
+                    const workerResponse = await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js');
+                    const workerCode = await workerResponse.text();
+                    const blob = new Blob([workerCode], { type: 'application/javascript' });
+                    gifWorkerBlobUrl = URL.createObjectURL(blob);
+                } catch (e) {
+                    console.warn('Could not fetch worker script, will use CDN URL:', e);
+                    gifWorkerBlobUrl = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js';
+                }
+            })();
+
+            try {
+                await gifJsLoading;
+            } catch (e) {
+                gifJsLoading = null;
+                throw e;
+            }
+
+            return gifJsLoading;
+        }
+
+        function closeResult() {
+            resultPanel.classList.remove('visible');
+        }
+
+        function resetTool() {
+            // Clean up blob URLs to prevent memory leaks
+            if (resultVideo.src && resultVideo.src.startsWith('blob:')) {
+                URL.revokeObjectURL(resultVideo.src);
+            }
+            if (videoElement.src && videoElement.src.startsWith('blob:')) {
+                URL.revokeObjectURL(videoElement.src);
+            }
+            if (processedBlob) {
+                processedBlob = null;
+            }
+
+            videoFile = null;
+            frames = [];
+            keyframes = {};
+            trackedCorners = [];
+            currentFrameIndex = 0;
+            processedFramesCache = [];
+            frameRate = 30;
+
+            corners = [
+                { x: 0.1, y: 0.1 },
+                { x: 0.9, y: 0.1 },
+                { x: 0.9, y: 0.9 },
+                { x: 0.1, y: 0.9 }
+            ];
+
+            frameCanvas.style.display = 'none';
+            dropZone.classList.remove('hidden');
+            hideCorners();
+            timelineContainer.classList.remove('visible');
+            resultPanel.classList.remove('visible');
+            updateButtons(false);
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('keyframeIndicator').style.display = 'none';
+            document.querySelectorAll('.keyframe-marker').forEach(el => el.remove());
+            hideStatus();
+        }
+
+        init();
+    </script>
+</body>
+</html>
